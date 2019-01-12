@@ -58,7 +58,7 @@ export type State = {
 //  const UUID         = '7b44b47b-52a1-5381-90c2-f09b6838c5d4';
 const IDENTIFIER = '123456';
 const TIME_FORMAT = 'MM/DD/YYYY HH:mm:ss';
-const UUID = '7b44b47b-52a1-5381-90c2-f09b6838c5d4';
+const UUID = '7B44B47B-52A1-5381-90C2-F09B6838C5D4';
 
 const RANGING_TITLE = 'ranging beacons in the area:';
 const RANGING_SECTION_ID = 1;
@@ -67,6 +67,28 @@ const MONITORING_ENTER_SECTION_ID = 2;
 const MONITORING_LEAVE_TITLE = 'monitoring exit information:';
 const MONITORING_LEAVE_SECTION_ID = 3;
 // #endregion
+
+
+// monitoring:
+Beacons.BeaconsEventEmitter.addListener(
+  'regionDidEnter',
+  ({ identifier, uuid, minor, major }) => {
+    ToastAndroid.show(
+      `regionDidEnter: ${identifier}, ${uuid}, ${minor}, ${major}`,
+      ToastAndroid.SHORT,
+    );
+  },
+);
+
+Beacons.BeaconsEventEmitter.addListener(
+  'regionDidExit',
+  ({ identifier, uuid, minor, major }) => {
+    ToastAndroid.show(
+      `regionDidExit: ${identifier}, ${uuid}, ${minor}, ${major}`,
+      ToastAndroid.SHORT,
+    );
+  },
+);
 
 class BeaconsDemo extends Component<Props, State> {
   // will be set as a reference to "beaconsDidRange" event:
@@ -194,8 +216,8 @@ class BeaconsDemo extends Component<Props, State> {
   }
 
   componentWillUnMount() {
-    this.stopRangingAndMonitoring();
-    // remove monitiring events we registered at componentDidMount::
+    // this.stopRangingAndMonitoring();
+    // remove monitiring events we registered at componentDidMount:
     this.beaconsDidEnterEvent.remove();
     this.beaconsDidLeaveEvent.remove();
     // remove ranging event we registered at componentDidMount:
@@ -238,7 +260,7 @@ class BeaconsDemo extends Component<Props, State> {
             ListEmptyComponent={this.renderEmpty}
             // SectionSeparatorComponent={this.renderSeparator}
             ItemSeparatorComponent={this.renderSeparator}
-            // shouldItemUpdate={this.shouldItemUpdate}
+          // shouldItemUpdate={this.shouldItemUpdate}
           />
         </View>
       </Image>
@@ -385,7 +407,7 @@ class BeaconsDemo extends Component<Props, State> {
       );
     } catch (error) {
       ToastAndroid.show(
-        `Error: add IBeacon detection failed: ${error.message}`,
+        `Error: add IBeacon detection failed: ${error && error.message || error}`,
         ToastAndroid.SHORT,
       );
     }
@@ -403,7 +425,7 @@ class BeaconsDemo extends Component<Props, State> {
       );
     } catch (error) {
       ToastAndroid.show(
-        `Error: remove IBeacon detection failed: ${error.message}`,
+        `Error: remove IBeacon detection failed: ${error && error.message || error}`,
         ToastAndroid.SHORT,
       );
     }
