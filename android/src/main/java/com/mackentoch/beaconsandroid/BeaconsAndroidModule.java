@@ -55,6 +55,8 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     private Context mApplicationContext;
     private ReactApplicationContext mReactContext;
     private BeaconsAndroidLifecycle mLifecycle;
+    private final Object bindLock = new Object();
+    private volatile boolean binding = false;
 
     private static final String NOTIFICATION_CHANNEL_ID = "BeaconsAndroidModule";
     private static boolean channelCreated = false;
@@ -72,10 +74,31 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
         // IBeacon
         mBeaconManager.getBeaconParsers().add(new BeaconParser().setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"));
         // AltBeacon
-        mBeaconManager.getBeaconParsers().add(new BeaconParser().setBeaconLayout("m:0-3=4c000215,i:4-19,i:20-21,i:22-23,p:24-24"));
+        // mBeaconManager.getBeaconParsers().add(new BeaconParser().setBeaconLayout("m:0-3=4c000215,i:4-19,i:20-21,i:22-23,p:24-24"));
 
         // Setup Lifecycle Event Listener
-        this.mLifecycle = new BeaconsAndroidLifecycle(this, reactContext);
+        // this.mLifecycle = new BeaconsAndroidLifecycle(this, reactContext);
+
+        if (mBeaconManager.getForegroundServiceNotification() == null) {
+            Integer requestCode = 123;
+
+            if (notificationBuilder == null) {
+                notificationBuilder = createNotificationBuilder("test", "testing", requestCode);
+            }
+
+            if (pendingNotification == null) {
+                NotificationManager notificationManager = (NotificationManager) mApplicationContext.getSystemService(Context.NOTIFICATION_SERVICE);
+                checkOrCreateChannel(notificationManager);
+
+                pendingNotification = notificationBuilder.build();
+                pendingNotification.defaults |= Notification.DEFAULT_LIGHTS;
+
+                notificationManager.notify(requestCode, pendingNotification);
+                mBeaconManager.enableForegroundServiceScanning(pendingNotification, requestCode);
+            }
+        }
+
+        bindManager();
     }
 
     @Override
@@ -98,51 +121,26 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
 
     public void whenForeground () {
         Log.d(LOG_TAG, "whenForeground");
-
-        // unbindManager();
-
-        if (notificationBuilder == null) {
-            Integer requestCode = 123;
-            pendingNotification = createNotification("test", "testing", requestCode);
-            NotificationManager notificationManager = (NotificationManager) mApplicationContext.getSystemService(Context.NOTIFICATION_SERVICE);
-
-            mBeaconManager.enableForegroundServiceScanning(pendingNotification, requestCode);
-            notificationManager.notify(requestCode, pendingNotification);
-
-            mBeaconManager.setEnableScheduledScanJobs(false);
-            mBeaconManager.setBackgroundBetweenScanPeriod(0);
-            mBeaconManager.setBackgroundScanPeriod(1100);
-
-            bindManager();
-        }
-
     }
 
     public void whenBackground () {
         Log.d(LOG_TAG, "whenBackground");
-
-        // unbindManager();
-
-        // mBeaconManager.setEnableScheduledScanJobs(false);
-        // mBeaconManager.setBackgroundBetweenScanPeriod(0);
-        // mBeaconManager.setBackgroundScanPeriod(1100);
-
-        // bindManager();
     }
 
     public void whenKilled () {
         Log.d(LOG_TAG, "whenKilled");
 
-        unbindManager();
+        synchronized(bindLock) {
+            unbindManager();
 
+            // TODO
+            // pendingNotification.cancel();
+            this.pendingNotification = null;
+            mBeaconManager.disableForegroundServiceScanning();
+            mBeaconManager.setEnableScheduledScanJobs(true);
 
-        // TODO
-        // pendingNotification.cancel();
-        // this.pendingNotification = null;
-
-        mBeaconManager.setEnableScheduledScanJobs(true);
-
-        bindManager();
+            bindManager();
+        }
     }
 
     @ReactMethod
@@ -151,17 +149,33 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     }
 
     public void bindManager() {
-        if (!mBeaconManager.isBound(this)) {
-            Log.d(LOG_TAG, "bindManager: ");
-            mBeaconManager.bind(this);
+        synchronized(bindLock) {
+
+            if (!mBeaconManager.isBound(this)) {
+                Log.d(LOG_TAG, "bindManager: ");
+                mBeaconManager.bind(this);
+            }
         }
     }
 
     public void unbindManager() {
-        // if (mBeaconManager.isBound(this)) {
-        //     Log.d(LOG_TAG, "unbindManager: ");
-        //     mBeaconManager.unbind(this);
-        // }
+        synchronized(bindLock) {
+            if (mBeaconManager.isBound(this)) {
+                if (binding) {
+                    try {
+                        bindLock.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                mBeaconManager.removeMonitorNotifier(mMonitorNotifier);
+                mBeaconManager.removeRangeNotifier(mRangeNotifier);
+
+                Log.d(LOG_TAG, "unbindManager: ");
+                mBeaconManager.unbind(this);
+            }
+        }
     }
 
     @ReactMethod
@@ -309,12 +323,16 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     public void onBeaconServiceConnect() {
         Log.v(LOG_TAG, "onBeaconServiceConnect");
 
-        // deprecated since v2.9 (see github: https://github.com/AltBeacon/android-beacon-library/releases/tag/2.9)
-        // mBeaconManager.setMonitorNotifier(mMonitorNotifier);
-        // mBeaconManager.setRangeNotifier(mRangeNotifier);
-        mBeaconManager.addMonitorNotifier(mMonitorNotifier);
-        mBeaconManager.addRangeNotifier(mRangeNotifier);
-        sendEvent(mReactContext, "beaconServiceConnected", null);
+        synchronized(bindLock) {
+            // deprecated since v2.9 (see github: https://github.com/AltBeacon/android-beacon-library/releases/tag/2.9)
+            // mBeaconManager.setMonitorNotifier(mMonitorNotifier);
+            // mBeaconManager.setRangeNotifier(mRangeNotifier);
+            mBeaconManager.addMonitorNotifier(mMonitorNotifier);
+            mBeaconManager.addRangeNotifier(mRangeNotifier);
+
+            bindLock.notify();
+            sendEvent(mReactContext, "beaconServiceConnected", null);
+        }
     }
 
     @Override
@@ -576,7 +594,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
 
     // }
 
-    private Notification createNotification (String title, String message, Integer requestCode) {
+    private NotificationCompat.Builder createNotificationBuilder (String title, String message, Integer requestCode) {
         Intent notificationIntent = getNewIntentFromMainActivity();
         // Integer requestCode = 123124
 
@@ -586,7 +604,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
 
         PendingIntent contentIntent = PendingIntent.getActivity(mApplicationContext, requestCode, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
-        this.notificationBuilder = new NotificationCompat.Builder(mApplicationContext, NOTIFICATION_CHANNEL_ID)
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(mApplicationContext, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(message)
@@ -600,12 +618,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
             notificationBuilder.setCategory(NotificationCompat.CATEGORY_CALL);
         }
 
-        NotificationManager notificationManager = (NotificationManager) mApplicationContext.getSystemService(Context.NOTIFICATION_SERVICE);
-        checkOrCreateChannel(notificationManager);
-        Notification info = notificationBuilder.build();
-        info.defaults |= Notification.DEFAULT_LIGHTS;
-
-        return info;
+        return notificationBuilder;
     }
 
     private Boolean isActivityRunning(Class activityClass) {

@@ -12,7 +12,7 @@ import {
   View,
   TouchableHighlight,
   ToastAndroid,
-  Image,
+  ImageBackground,
 } from 'react-native';
 import Beacons from 'react-native-beacons-manager';
 import { Avatar } from 'react-native-elements';
@@ -55,7 +55,6 @@ export type State = {
 // #endregion
 
 // #region constants
-//  const UUID         = '7b44b47b-52a1-5381-90c2-f09b6838c5d4';
 const IDENTIFIER = '123456';
 const TIME_FORMAT = 'MM/DD/YYYY HH:mm:ss';
 const UUID = '7B44B47B-52A1-5381-90C2-F09B6838C5D4';
@@ -104,6 +103,9 @@ class BeaconsDemo extends Component<Props, State> {
     // region information
     uuid: UUID,
     identifier: IDENTIFIER,
+
+    ready: false,
+
     // all detected beacons:
     beacons: [
       { key: 1, data: [], title: RANGING_TITLE, sectionId: RANGING_SECTION_ID },
@@ -128,13 +130,6 @@ class BeaconsDemo extends Component<Props, State> {
     // ONLY non component state aware here in componentWillMount
     //
 
-    // Beacons.addParsersListToDetection([
-    //   Beacons.PARSER_IBEACON,
-    //   Beacons.PARSER_ALTBEACON,
-    //   Beacons.PARSER_EDDYSTONE_TLM,
-    //   Beacons.PARSER_EDDYSTONE_UID,
-    //   Beacons.PARSER_EDDYSTONE_URL
-    // ])
     // start iBeacon detection
     Beacons.addIBeaconsDetection()
       .then(() => Beacons.addEddystoneUIDDetection())
@@ -143,7 +138,7 @@ class BeaconsDemo extends Component<Props, State> {
       .then(() => Beacons.addAltBeaconsDetection())
       .then(() => Beacons.addEstimotesDetection())
       .catch(error =>
-        console.log(`something went wrong during initialization: ${error}`),
+        alert(`something went wrong during initialization: ${error}`),
       );
     //
     // component state aware here - attach events
@@ -153,7 +148,10 @@ class BeaconsDemo extends Component<Props, State> {
     this.beaconsServiceDidConnect = Beacons.BeaconsEventEmitter.addListener(
       'beaconServiceConnected',
       () => {
-        console.log('service connected');
+        if(this.state.ready === false) {
+          this.setState({ ready: true })
+        }
+
         this.startRangingAndMonitoring();
       },
     );
@@ -230,7 +228,7 @@ class BeaconsDemo extends Component<Props, State> {
     console.log('beacons: ', beacons);
 
     return (
-      <Image
+      <ImageBackground
         style={styles.backgroundImage}
         resizeMode="center"
         source={require('./bluetooth-300-300-opacity-45.png')}
@@ -263,7 +261,7 @@ class BeaconsDemo extends Component<Props, State> {
           // shouldItemUpdate={this.shouldItemUpdate}
           />
         </View>
-      </Image>
+      </ImageBackground>
     );
   }
   // #endregion
