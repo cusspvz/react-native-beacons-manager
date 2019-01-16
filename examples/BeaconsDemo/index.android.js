@@ -105,7 +105,7 @@ class BeaconsDemo extends Component<Props, State> {
     uuid: UUID,
     identifier: IDENTIFIER,
 
-    ready: true,
+    ready: false,
     monitoring: false,
     ranging: false,
 
@@ -147,6 +147,13 @@ class BeaconsDemo extends Component<Props, State> {
       Beacons.PARSER_EDDYSTONE_UID,
       Beacons.PARSER_EDDYSTONE_URL
     ])
+
+    // await Beacons.addIBeaconsDetection()
+    // await Beacons.addEddystoneUIDDetection()
+    // await Beacons.addEddystoneURLDetection()
+    // await Beacons.addEddystoneTLMDetection()
+    // await Beacons.addAltBeaconsDetection()
+    // await Beacons.addEstimotesDetection()
 
     //
     // component state aware here - attach events
@@ -255,7 +262,7 @@ class BeaconsDemo extends Component<Props, State> {
             <TouchableHighlight
               style={styles.actionButton}
               onPress={this.toggleRanging}
-              // disabled={!ready}
+              disabled={!ready}
             >
               <Text style={styles.actionText}>{ranging ? 'stop' : 'start'} ranging</Text>
             </TouchableHighlight>
@@ -263,7 +270,7 @@ class BeaconsDemo extends Component<Props, State> {
             <TouchableHighlight
               style={styles.actionButton}
               onPress={this.toggleMonitoring}
-              // disabled={!ready}
+              disabled={!ready}
             >
               <Text style={styles.actionText}>{monitoring ? 'stop' : 'start'} monitoring</Text>
             </TouchableHighlight>
@@ -386,7 +393,7 @@ class BeaconsDemo extends Component<Props, State> {
 
   toggleMonitoring = async () => {
     const { monitoring, identifier, uuid } = this.state
-    const region = { identifier, uuid }; // minor and major are null here
+    const region = { identifier, uuid, major: 34, minor: 34 }; // minor and major are null here
 
     try {
       let message
@@ -397,10 +404,10 @@ class BeaconsDemo extends Component<Props, State> {
         message = 'started monitoring'
       } else {
         await Beacons.stopMonitoringForRegion(region);
-        await this.setState({ ready: true })
         message = 'stopped monitoring'
       }
 
+      await this.setState({ ready: true })
       ToastAndroid.showWithGravity(
         message,
         ToastAndroid.SHORT,
@@ -418,7 +425,7 @@ class BeaconsDemo extends Component<Props, State> {
 
   toggleRanging = async () => {
     const { ranging, identifier, uuid } = this.state
-    const region = { identifier, uuid }; // minor and major are null here
+    const region = { identifier, uuid, major: 34, minor: 34 }; // minor and major are null here
 
     try {
       await this.setState({ ready: false })
@@ -429,10 +436,10 @@ class BeaconsDemo extends Component<Props, State> {
         message = 'started ranging'
       } else {
         await Beacons.stopRangingBeaconsInRegion(region);
-        await this.setState({ ready: true })
         message = 'stopped ranging'
       }
 
+      await this.setState({ ready: true })
       ToastAndroid.showWithGravity(
         message,
         ToastAndroid.SHORT,

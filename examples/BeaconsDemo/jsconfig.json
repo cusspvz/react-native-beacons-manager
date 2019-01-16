@@ -1,9 +1,0 @@
-{
-  "exclude": [
-    "node_modules",
-    "android",
-    "ios",
-    "images",
-    "example"
-  ]
-}

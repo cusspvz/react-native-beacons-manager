@@ -100,8 +100,6 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
                 pendingNotification = mBeaconManager.getForegroundServiceNotification();
             }
         }
-
-        bindManager();
     }
 
     @Override
@@ -124,22 +122,49 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
 
     public void whenForeground () {
         Log.d(LOG_TAG, "whenForeground");
+
+        boolean scanJobsEnabled = mBeaconManager.getScheduledScanJobsEnabled();
+        if (scanJobsEnabled == true) {
+            unbindManager();
+            mBeaconManager.setEnableScheduledScanJobs(false);
+        }
+
+        mBeaconManager.setForegroundScanPeriod(2500);
+        mBeaconManager.setForegroundBetweenScanPeriod(500);
+        mBeaconManager.setBackgroundMode(false);
+
+        bindManager();
     }
 
     public void whenBackground () {
         Log.d(LOG_TAG, "whenBackground");
+
+        boolean scanJobsEnabled = mBeaconManager.getScheduledScanJobsEnabled();
+        if (scanJobsEnabled == true) {
+            unbindManager();
+            mBeaconManager.setEnableScheduledScanJobs(false);
+        }
+
+        mBeaconManager.setBackgroundScanPeriod(2000);
+        mBeaconManager.setBackgroundBetweenScanPeriod(10000);
+        mBeaconManager.setBackgroundMode(true);
+
+        bindManager();
     }
 
     public void whenKilled () {
         Log.d(LOG_TAG, "whenKilled");
 
-        // unbindManager();
+        unbindManager();
 
         // // TODO
         // // pendingNotification.cancel();
         // this.pendingNotification = null;
         // mBeaconManager.disableForegroundServiceScanning();
         // mBeaconManager.setEnableScheduledScanJobs(true);
+
+        // mBeaconManager.setBackgroundBetweenScanPeriod(30000);
+        // mBeaconManager.setBackgroundScanPeriod(2500);
 
         // bindManager();
     }
@@ -150,7 +175,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     }
 
     public void bindManager() {
-        if(binded) return;
+        if (binded) return;
 
         try {
             synchronized(bindingLock) {
@@ -162,11 +187,11 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
                     mBeaconManager.bind(this);
                 }
 
-                bindingLock.wait();
+                bindingLock.wait(1000);
                 binded = true;
             }
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            Log.e(LOG_TAG, "bindManager, error: ", e);
         }
     }
 
@@ -177,19 +202,20 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
             synchronized(bindingLock) {
                 if (mBeaconManager.isBound(this)) {
                     if (binding) {
-                        bindingLock.wait();
+                        bindingLock.wait(1000);
                     }
-
-                    mBeaconManager.removeMonitorNotifier(mMonitorNotifier);
-                    mBeaconManager.removeRangeNotifier(mRangeNotifier);
 
                     Log.d(LOG_TAG, "unbindManager: ");
                     mBeaconManager.unbind(this);
                     binded = false;
                 }
             }
+
+            mBeaconManager.removeMonitorNotifier(mMonitorNotifier);
+            mBeaconManager.removeRangeNotifier(mRangeNotifier);
+
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            Log.e(LOG_TAG, "unbindManager, error: ", e);
         }
     }
 
@@ -223,13 +249,16 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     public void addParsersListToDetection(ReadableArray parsers, Callback resolve, Callback reject) {
         try {
             unbindManager();
+
             for (int i = 0; i < parsers.size(); i++) {
                 String parser = parsers.getString(i);
-                Log.d(LOG_TAG, "addParsersListToDetection - add parser: " + parser);
+                Log.d(LOG_TAG, "addParsersListToDetection - parser: " + parser);
                 mBeaconManager.getBeaconParsers().add(new BeaconParser().setBeaconLayout(parser));
             }
+
             bindManager();
-            resolve.invoke(parsers);
+
+            resolve.invoke();
         } catch (Exception e) {
             reject.invoke(e.getMessage());
         }
@@ -241,11 +270,11 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
             unbindManager();
             for (int i = 0; i < parsers.size(); i++) {
                 String parser = parsers.getString(i);
-                Log.d(LOG_TAG, "removeParsersListToDetection - remove parser: " + parser);
+                Log.d(LOG_TAG, "removeParsersListToDetection - parser: " + parser);
                 mBeaconManager.getBeaconParsers().remove(new BeaconParser().setBeaconLayout(parser));
             }
             bindManager();
-            resolve.invoke(parsers);
+            resolve.invoke();
         } catch (Exception e) {
             reject.invoke(e.getMessage());
         }
@@ -339,16 +368,18 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
         Log.v(LOG_TAG, "onBeaconServiceConnect");
 
         try {
-            synchronized(bindingLock) {
-                mBeaconManager.addMonitorNotifier(mMonitorNotifier);
-                mBeaconManager.addRangeNotifier(mRangeNotifier);
+            mBeaconManager.addMonitorNotifier(mMonitorNotifier);
+            mBeaconManager.addRangeNotifier(mRangeNotifier);
 
-                // sendEvent("beaconServiceConnected", null);
+            synchronized(bindingLock) {
                 binding = false;
                 bindingLock.notify();
             }
+
+            sendEvent("beaconServiceConnected", null);
+
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(LOG_TAG, "onBeaconServiceConnect, error: ", e);
         }
     }
 
@@ -392,14 +423,14 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     private MonitorNotifier mMonitorNotifier = new MonitorNotifier() {
         @Override
         public void didEnterRegion(Region region) {
-            Log.i(LOG_TAG, "didEnterRegion");
+            Log.i(LOG_TAG, "didEnterRegion: " + region.toString());
             sendEvent("regionDidEnter", createMonitoringResponse(region));
             // wakeUpAppIfNotRunning();
         }
 
         @Override
         public void didExitRegion(Region region) {
-            Log.i(LOG_TAG, "regionDidExit");
+            Log.i(LOG_TAG, "regionDidExit: " + region.toString());
             sendEvent("regionDidExit", createMonitoringResponse(region));
 
             // NOTE: Support the option to stop monitoring the region
@@ -407,7 +438,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
 
         @Override
         public void didDetermineStateForRegion(int i, Region region) {
-            Log.i(LOG_TAG, "didDetermineStateForRegion");
+            Log.i(LOG_TAG, "didDetermineStateForRegion: " + region.toString());
         }
     };
 
@@ -468,13 +499,15 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     private RangeNotifier mRangeNotifier = new RangeNotifier() {
         @Override
         public void didRangeBeaconsInRegion(Collection<Beacon> beacons, Region region) {
-            Log.d(LOG_TAG, "rangingConsumer didRangeBeaconsInRegion, beacons: " + beacons.toString());
-            Log.d(LOG_TAG, "rangingConsumer didRangeBeaconsInRegion, region: " + region.toString());
-            sendEvent("beaconsDidRange", createRangingResponse(beacons, region));
+            Log.d(LOG_TAG, "didRangeBeaconsInRegion, beacons: " + beacons.toString());
+            Log.d(LOG_TAG, "didRangeBeaconsInRegion, region: " + region.toString());
+
 
             // if (!beacons.isEmpty()) {
             //     wakeUpAppIfNotRunning();
             // }
+
+            sendEvent("beaconsDidRange", createRangingResponse(beacons, region));
         }
     };
 
@@ -573,7 +606,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
         try {
             return Class.forName(className);
         } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            Log.e(LOG_TAG, "getMainActivityClass, error: ", e);
             return null;
         }
     }
