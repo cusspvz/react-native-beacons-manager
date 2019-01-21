@@ -355,10 +355,10 @@ RCT_EXPORT_METHOD(shouldDropEmptyRanges:(BOOL)drop)
 
   [self sendEventWithName:@"regionDidExit" body: event];
 
-  if (event.stopRangingOnRegionDidExit) {
-    NSLog(@"[Beacon][Native] regionDidExit - removing from ranging");
-    [self.locationManager stopRangingBeaconsInRegion: region];
-  }
+  // if (event.stopRangingOnRegionDidExit) {
+  //   NSLog(@"[Beacon][Native] regionDidExit - removing from ranging");
+  //   [self.locationManager stopRangingBeaconsInRegion: region];
+  // }
 }
 
 + (BOOL)requiresMainQueueSetup
