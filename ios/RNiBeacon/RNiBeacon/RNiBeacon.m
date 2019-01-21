@@ -65,7 +65,7 @@ RCT_EXPORT_MODULE()
                                   uuid: (NSString *) uuid
                                  major: (NSInteger) major
                                  minor: (NSInteger) minor
-            stopRangingOnRegionDidExit: (BOOL) stopRangingOnRegionDidExit
+            // stopRangingOnRegionDidExit: (BOOL) stopRangingOnRegionDidExit
 {
   NSUUID *beaconUUID = [[NSUUID alloc] initWithUUIDString:uuid];
 
