@@ -41,6 +41,10 @@ RCT_EXPORT_MODULE()
     self.locationManager.pausesLocationUpdatesAutomatically = NO;
     self.dropEmptyRanges = NO;
 
+    // Options to allow app killed state running
+    self.locationManager.desiredAccuracy = kCLLocationAccuracyThreeKilometers;
+    self.locationManager.allowsBackgroundLocationUpdates = true;
+
     self.eddyStoneScanner = [[ESSBeaconScanner alloc] init];
     self.eddyStoneScanner.delegate = self;
   }
