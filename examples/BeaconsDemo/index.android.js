@@ -12,7 +12,9 @@ import {
   View,
   TouchableHighlight,
   ToastAndroid,
-  Image,
+  ImageBackground,
+  DeviceEventEmitter,
+  PermissionsAndroid,
 } from 'react-native';
 import Beacons from 'react-native-beacons-manager';
 import { Avatar } from 'react-native-elements';
@@ -55,7 +57,6 @@ export type State = {
 // #endregion
 
 // #region constants
-//  const UUID         = '7b44b47b-52a1-5381-90c2-f09b6838c5d4';
 const IDENTIFIER = '123456';
 const TIME_FORMAT = 'MM/DD/YYYY HH:mm:ss';
 const UUID = '7b44b47b-52a1-5381-90c2-f09b6838c5d4';
@@ -67,6 +68,28 @@ const MONITORING_ENTER_SECTION_ID = 2;
 const MONITORING_LEAVE_TITLE = 'monitoring exit information:';
 const MONITORING_LEAVE_SECTION_ID = 3;
 // #endregion
+
+
+// monitoring:
+// DeviceEventEmitter.addListener(
+//   'regionDidEnter',
+//   ({ identifier, uuid, minor, major }) => {
+//     ToastAndroid.show(
+//       `regionDidEnter: ${identifier}, ${uuid}, ${minor}, ${major}`,
+//       ToastAndroid.SHORT,
+//     );
+//   },
+// );
+
+// DeviceEventEmitter.addListener(
+//   'regionDidExit',
+//   ({ identifier, uuid, minor, major }) => {
+//     ToastAndroid.show(
+//       `regionDidExit: ${identifier}, ${uuid}, ${minor}, ${major}`,
+//       ToastAndroid.SHORT,
+//     );
+//   },
+// );
 
 class BeaconsDemo extends Component<Props, State> {
   // will be set as a reference to "beaconsDidRange" event:
@@ -82,6 +105,11 @@ class BeaconsDemo extends Component<Props, State> {
     // region information
     uuid: UUID,
     identifier: IDENTIFIER,
+
+    ready: false,
+    monitoring: false,
+    ranging: false,
+
     // all detected beacons:
     beacons: [
       { key: 1, data: [], title: RANGING_TITLE, sectionId: RANGING_SECTION_ID },
@@ -101,43 +129,17 @@ class BeaconsDemo extends Component<Props, State> {
   };
 
   // #region lifecycle methods
-  componentDidMount() {
+  async componentDidMount() {
     //
     // ONLY non component state aware here in componentWillMount
     //
 
-    // Beacons.addParsersListToDetection([
-    //   Beacons.PARSER_IBEACON,
-    //   Beacons.PARSER_ALTBEACON,
-    //   Beacons.PARSER_EDDYSTONE_TLM,
-    //   Beacons.PARSER_EDDYSTONE_UID,
-    //   Beacons.PARSER_EDDYSTONE_URL
-    // ])
-    // start iBeacon detection
-    Beacons.addIBeaconsDetection()
-      .then(() => Beacons.addEddystoneUIDDetection())
-      .then(() => Beacons.addEddystoneURLDetection())
-      .then(() => Beacons.addEddystoneTLMDetection())
-      .then(() => Beacons.addAltBeaconsDetection())
-      .then(() => Beacons.addEstimotesDetection())
-      .catch(error =>
-        console.log(`something went wrong during initialization: ${error}`),
-      );
     //
     // component state aware here - attach events
     //
 
-    // we need to wait for service connection to ensure synchronization:
-    this.beaconsServiceDidConnect = Beacons.BeaconsEventEmitter.addListener(
-      'beaconServiceConnected',
-      () => {
-        console.log('service connected');
-        this.startRangingAndMonitoring();
-      },
-    );
-
     // Ranging: Listen for beacon changes
-    this.beaconsDidRangeEvent = Beacons.BeaconsEventEmitter.addListener(
+    this.beaconsDidRangeEvent = DeviceEventEmitter.addListener(
       'beaconsDidRange',
       (response: {
         beacons: Array<{
@@ -166,7 +168,7 @@ class BeaconsDemo extends Component<Props, State> {
     );
 
     // monitoring:
-    this.beaconsDidEnterEvent = Beacons.BeaconsEventEmitter.addListener(
+    this.beaconsDidEnterEvent = DeviceEventEmitter.addListener(
       'regionDidEnter',
       ({ identifier, uuid, minor, major }) => {
         console.log('regionDidEnter: ', { identifier, uuid, minor, major });
@@ -179,7 +181,7 @@ class BeaconsDemo extends Component<Props, State> {
       },
     );
 
-    this.beaconsDidLeaveEvent = Beacons.BeaconsEventEmitter.addListener(
+    this.beaconsDidLeaveEvent = DeviceEventEmitter.addListener(
       'regionDidExit',
       ({ identifier, uuid, minor, major }) => {
         console.log('regionDidExit: ', { identifier, uuid, minor, major });
@@ -191,24 +193,69 @@ class BeaconsDemo extends Component<Props, State> {
         });
       },
     );
+
+    // we need to wait for service connection to ensure synchronization:
+    this.beaconsServiceDidConnect = DeviceEventEmitter.addListener(
+      'beaconServiceConnected',
+      async () => {
+        console.log('service connected')
+
+        ToastAndroid.show(
+          `beaconServiceConnected!`,
+          ToastAndroid.SHORT,
+        );
+
+        if (!this.state.ready) {
+          await this.setState({ ready: true })
+        }
+      },
+    );
+
+    // start iBeacon detection
+    await Beacons.addParsersListToDetection([
+      Beacons.PARSER_IBEACON,
+      Beacons.PARSER_ESTIMOTE,
+      Beacons.PARSER_ALTBEACON,
+      Beacons.PARSER_EDDYSTONE_TLM,
+      Beacons.PARSER_EDDYSTONE_UID,
+      Beacons.PARSER_EDDYSTONE_URL
+    ])
+
+    // await Beacons.addIBeaconsDetection()
+    // await Beacons.addEddystoneUIDDetection()
+    // await Beacons.addEddystoneURLDetection()
+    // await Beacons.addEddystoneTLMDetection()
+    // await Beacons.addAltBeaconsDetection()
+    // await Beacons.addEstimotesDetection()
+
+    //
+    // Ensure that the state has the correct flags for monitoring and ranging
+    //
+    await this.updateState()
+
   }
 
-  componentWillUnMount() {
-    this.stopRangingAndMonitoring();
-    // remove monitiring events we registered at componentDidMount::
-    this.beaconsDidEnterEvent.remove();
-    this.beaconsDidLeaveEvent.remove();
+  async componentWillUnmount() {
+    const { monitoring, ranging } = this.state
+
+    // Commented so we can test the case when the app gets killed
+    // if( monitoring ) await this.toggleMonitoring();
+    // if( ranging ) await this.toggleRanging();
+
+    // remove monitiring events we registered at componentDidMount:
+    if(this.beaconsDidEnterEvent) this.beaconsDidEnterEvent.remove();
+    if(this.beaconsDidLeaveEvent) this.beaconsDidLeaveEvent.remove();
+
     // remove ranging event we registered at componentDidMount:
-    this.beaconsDidRangeEvent.remove();
+    if(this.beaconsDidRangeEvent) this.beaconsDidRangeEvent.remove();
+    if(this.beaconsServiceDidConnect) this.beaconsServiceDidConnect.remove();
   }
 
   render() {
-    const { beacons } = this.state;
-
-    console.log('beacons: ', beacons);
+    const { beacons, ready, ranging, monitoring } = this.state;
 
     return (
-      <Image
+      <ImageBackground
         style={styles.backgroundImage}
         resizeMode="center"
         source={require('./bluetooth-300-300-opacity-45.png')}
@@ -217,16 +264,18 @@ class BeaconsDemo extends Component<Props, State> {
           <View style={styles.actionsContainer}>
             <TouchableHighlight
               style={styles.actionButton}
-              onPress={this.handlesOnRemoveIbeacon}
+              onPress={this.toggleRanging}
+              disabled={!ready}
             >
-              <Text style={styles.actionText}>remove IBeacon detection</Text>
+              <Text style={styles.actionText}>{ranging ? 'stop' : 'start'} ranging</Text>
             </TouchableHighlight>
-
+            <Text>{ready ? 'ready' : 'not ready'}</Text>
             <TouchableHighlight
               style={styles.actionButton}
-              onPress={this.handlesOnAddIbeacon}
+              onPress={this.toggleMonitoring}
+              disabled={!ready}
             >
-              <Text style={styles.actionText}>add IBeacon detection</Text>
+              <Text style={styles.actionText}>{monitoring ? 'stop' : 'start'} monitoring</Text>
             </TouchableHighlight>
           </View>
 
@@ -238,10 +287,10 @@ class BeaconsDemo extends Component<Props, State> {
             ListEmptyComponent={this.renderEmpty}
             // SectionSeparatorComponent={this.renderSeparator}
             ItemSeparatorComponent={this.renderSeparator}
-            // shouldItemUpdate={this.shouldItemUpdate}
+          // shouldItemUpdate={this.shouldItemUpdate}
           />
         </View>
-      </Image>
+      </ImageBackground>
     );
   }
   // #endregion
@@ -250,8 +299,10 @@ class BeaconsDemo extends Component<Props, State> {
   sectionListKeyExtractor = (item: DetectedBeacon, index: number) => {
     const UUID = item.uuid ? item.uuid : 'NONE';
     const ID = item.identifier ? item.identifier : 'NONE';
+    const MAJOR = item.major ? item.major : 'NONE';
+    const MINOR = item.minor ? item.minor : 'NONE';
 
-    return `${UUID}-${ID}`;
+    return `${UUID}-${ID}-${MAJOR}-${MINOR}`;
   };
 
   renderHeader = ({ section }) => (
@@ -320,11 +371,12 @@ class BeaconsDemo extends Component<Props, State> {
   ) => {
     const { beacons } = this.state;
     const time = moment().format(TIME_FORMAT);
+
     const updatedBeacons = beacons.map(beacon => {
       if (beacon.sectionId === forSectionId) {
         const sameBeacon = data =>
           !(
-            data.UUID === uuid &&
+            data.uuid === uuid &&
             data.identifier === identifier &&
             data.minor === minor &&
             data.major === major
@@ -342,68 +394,118 @@ class BeaconsDemo extends Component<Props, State> {
       }
       return beacon;
     });
+
+    console.log('updatedBeacons', updatedBeacons)
     this.setState({ beacons: updatedBeacons });
   };
 
-  startRangingAndMonitoring = async () => {
-    const { identifier, uuid } = this.state;
+  updateState = async () => {
+    const { monitoring, ranging } = this.state;
+    const newState = { monitoring, ranging };
+
+
+    const monitoredRegions = await Beacons.getMonitoredRegions()
+    for (const { identifier, uuid } of monitoredRegions) {
+      if(this.state.identifier === identifier && this.state.uuid === uuid) {
+        newState.monitoring = true
+      } else {
+        Beacons.stopMonitoringForRegion({ identifier, uuid })
+      }
+    }
+
+    const rangedBeacons = await Beacons.getRangedRegions()
+    for (const { identifier, uuid } of rangedBeacons) {
+      if (this.state.identifier === identifier && this.state.uuid === uuid) {
+        newState.ranging = true
+      } else {
+        Beacons.stopRangingBeaconsInRegion({ identifier, uuid })
+      }
+    }
+
+    await this.setState(newState)
+  }
+
+  handlePermissions = async () => {
+    if(this.authorized) return
+
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      {
+        title: 'BeaconDemo',
+        message:
+          'The Application needs Access to your Bluetooth ' +
+          'to Track Beacons.',
+      },
+    )
+
+    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+      throw new Error('Beacon Tracking Denied')
+    }
+
+    this.authorized = true
+  }
+
+  toggleMonitoring = async () => {
+    const { monitoring, identifier, uuid } = this.state
     const region = { identifier, uuid }; // minor and major are null here
 
     try {
-      await Beacons.startRangingBeaconsInRegion(region);
-      console.log('Beacons ranging started successfully');
-      await Beacons.startMonitoringForRegion(region);
-      console.log('Beacons monitoring started successfully');
-    } catch (error) {
-      throw error;
-    }
-  };
+      await this.handlePermissions()
+      await this.setState({ ready: false })
 
-  stopRangingAndMonitoring = async () => {
-    const { identifier, uuid } = this.state;
-    const region = { identifier, uuid }; // minor and major are null here
+      let message
+      if (!monitoring) {
+        await Beacons.startMonitoringForRegion(region);
+        message = 'started monitoring'
+      } else {
+        await Beacons.stopMonitoringForRegion(region);
+        message = 'stopped monitoring'
+      }
 
-    try {
-      await Beacons.stopRangingBeaconsInRegion(region);
-      console.log('Beacons ranging stopped successfully');
-      await Beacons.stopMonitoringForRegion(region);
-      console.log('Beacons monitoring stopped successfully');
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  handlesOnAddIbeacon = async () => {
-    try {
-      await this.stopRangingAndMonitoring();
-      await Beacons.addIBeaconsDetection();
-      await this.startRangingAndMonitoring();
+      await this.setState({ ready: true })
       ToastAndroid.showWithGravity(
-        'add IBeacon detection',
+        message,
         ToastAndroid.SHORT,
         ToastAndroid.CENTER,
       );
+
+      await this.setState({ monitoring: !monitoring })
     } catch (error) {
       ToastAndroid.show(
-        `Error: add IBeacon detection failed: ${error.message}`,
+        `Error: toggling monitoring failed: ${error && error.message || error}`,
         ToastAndroid.SHORT,
       );
     }
   };
 
-  handlesOnRemoveIbeacon = async () => {
+  toggleRanging = async () => {
+    const { ranging, identifier, uuid } = this.state
+    const region = { identifier, uuid, major: 34, minor: 34 }; // minor and major are null here
+
     try {
-      await this.stopRangingAndMonitoring();
-      await Beacons.removeIBeaconsDetection();
-      await this.startRangingAndMonitoring();
+      await this.handlePermissions()
+      await this.setState({ ready: false })
+
+      let message
+      if (!ranging) {
+        await Beacons.startRangingBeaconsInRegion(region);
+        message = 'started ranging'
+      } else {
+        await Beacons.stopRangingBeaconsInRegion(region);
+        message = 'stopped ranging'
+      }
+
+      await this.setState({ ready: true })
       ToastAndroid.showWithGravity(
-        'removed IBeacon detection',
+        message,
         ToastAndroid.SHORT,
         ToastAndroid.CENTER,
       );
+
+      await this.setState({ ranging: ! ranging })
     } catch (error) {
       ToastAndroid.show(
-        `Error: remove IBeacon detection failed: ${error.message}`,
+        `Error: toggling ranging failed: ${error && error.message || error}`,
         ToastAndroid.SHORT,
       );
     }

@@ -46,6 +46,7 @@
   "license": "MIT",
   "nativePackage": true,
   "devDependencies": {
+    "@babel/preset-flow": "^7.0.0",
     "babel-cli": "^6.24.1",
     "babel-eslint": "^7.2.3",
     "eslint": "^4.4.1",

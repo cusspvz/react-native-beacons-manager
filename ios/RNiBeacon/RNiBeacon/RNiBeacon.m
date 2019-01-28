@@ -44,7 +44,7 @@ RCT_EXPORT_MODULE()
     // Options to allow app killed state running
     self.locationManager.desiredAccuracy = kCLLocationAccuracyThreeKilometers;
     self.locationManager.allowsBackgroundLocationUpdates = true;
-      
+
     self.eddyStoneScanner = [[ESSBeaconScanner alloc] init];
     self.eddyStoneScanner.delegate = self;
   }
@@ -68,7 +68,8 @@ RCT_EXPORT_MODULE()
 -(CLBeaconRegion *) createBeaconRegion: (NSString *) identifier
                                   uuid: (NSString *) uuid
                                  major: (NSInteger) major
-                                 minor:(NSInteger) minor
+                                 minor: (NSInteger) minor
+            // stopRangingOnRegionDidExit: (BOOL) stopRangingOnRegionDidExit
 {
   NSUUID *beaconUUID = [[NSUUID alloc] initWithUUIDString:uuid];
 
@@ -356,7 +357,12 @@ RCT_EXPORT_METHOD(shouldDropEmptyRanges:(BOOL)drop)
          didExitRegion:(CLBeaconRegion *)region {
   NSDictionary *event = [self convertBeaconRegionToDict: region];
 
-  [self sendEventWithName:@"regionDidExit" body:event];
+  [self sendEventWithName:@"regionDidExit" body: event];
+
+  // if (event.stopRangingOnRegionDidExit) {
+  //   NSLog(@"[Beacon][Native] regionDidExit - removing from ranging");
+  //   [self.locationManager stopRangingBeaconsInRegion: region];
+  // }
 }
 
 + (BOOL)requiresMainQueueSetup
@@ -370,7 +376,7 @@ RCT_EXPORT_METHOD(shouldDropEmptyRanges:(BOOL)drop)
 
 - (void)notifyAboutBeaconChanges:(NSArray *)beacons {
     NSMutableArray *beaconArray = [[NSMutableArray alloc] init];
-    
+
     for (id key in beacons) {
         ESSBeaconInfo *beacon = key;
         NSDictionary *info = [self getEddyStoneInfo:beacon];
@@ -404,12 +410,12 @@ RCT_EXPORT_METHOD(shouldDropEmptyRanges:(BOOL)drop)
     if ([rssi floatValue] >= 0){
         return [NSNumber numberWithInt:-1];
     }
-    
+
     float ratio = [rssi floatValue] / ([txPower floatValue] - 41);
     if (ratio < 1.0) {
         return [NSNumber numberWithFloat:pow(ratio, 10)];
     }
-    
+
     float distance = (0.89976) * pow(ratio, 7.7095) + 0.111;
     return [NSNumber numberWithFloat:distance];
 }
@@ -420,13 +426,13 @@ RCT_EXPORT_METHOD(shouldDropEmptyRanges:(BOOL)drop)
     if (!dataBuffer) {
         return [NSString string];
     }
-    
+
     NSMutableString *hexString  = [NSMutableString stringWithCapacity:(data.length * 2)];
     [hexString appendString:@"0x"];
     for (int i = 0; i < EDDYSTONE_UUID_LENGTH; ++i) {
         [hexString appendString:[NSString stringWithFormat:@"%02lx", (unsigned long)dataBuffer[i]]];
     }
-    
+
     return [NSString stringWithString:hexString];
 }
 
