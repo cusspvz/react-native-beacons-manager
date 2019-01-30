@@ -15,7 +15,6 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
-import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -475,9 +474,16 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
             // NOTE: Support the option to stop monitoring the region
         }
 
+
         @Override
         public void didDetermineStateForRegion(int i, Region region) {
-            Log.i(LOG_TAG, "didDetermineStateForRegion: " + region.toString());
+            Log.i(LOG_TAG, "didDetermineStateForRegion: " + i + ", " + region.toString());
+
+            WritableMap map = new WritableNativeMap();
+            map.putString("identifier", region.getUniqueId());
+            map.putString("state", i == 1 ? "inside" : "outside");
+
+            sendEvent("didDetermineState", map);
 
             if (!reactIsActive()) {
                 mBeaconManager.removeMonitorNotifier(mMonitorNotifier);
