@@ -5,6 +5,7 @@
 // #region imports
 import React, { Component } from 'react';
 import {
+  NativeModules,
   AppRegistry,
   StyleSheet,
   Text,
@@ -26,6 +27,9 @@ import { hashCode } from './helpers';
 // import eddystoneTLMIMAGE from './images/beacons/eddystone_TLM.png';
 // import eddystoneUIDIMAGE from './images/beacons/eddystone_UID.png';
 // #endregion
+
+const beaconTestManager: BeaconsManagerANDROID = NativeModules.BeaconsAndroidModule;
+
 
 // #region flow types
 export type DetectedBeacon = {
