@@ -99,8 +99,6 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
 
                 pendingNotification = notificationBuilder.build();
                 pendingNotification.defaults |= Notification.DEFAULT_LIGHTS;
-
-                mBeaconManager.enableForegroundServiceScanning(pendingNotification, requestCode);
             } else if (pendingNotification == null) {
                 pendingNotification = mBeaconManager.getForegroundServiceNotification();
             }
@@ -742,10 +740,18 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
 
     @ReactMethod
     public void startBeacon(String title, String message, Promise promise) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            setNotificationTitle(title, promise);
-            setNotificationMessage(message, promise);
-            notificationManager.notify(requestCode, pendingNotification);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                notificationBuilder.setContentTitle(title);
+                notificationBuilder.setContentText(message);
+                pendingNotification = notificationBuilder.build();
+                pendingNotification.defaults |= Notification.DEFAULT_LIGHTS;
+                notificationManager.notify(requestCode, pendingNotification);
+                mBeaconManager.enableForegroundServiceScanning(pendingNotification, requestCode);
+                promise.resolve(null);
+            }
+        } catch (Exception e) {
+            promise.reject(E_LAYOUT_ERROR, e);
         }
     }
 
