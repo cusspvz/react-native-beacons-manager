@@ -225,6 +225,8 @@ class BeaconsDemo extends Component<Props, State> {
       Beacons.PARSER_EDDYSTONE_URL
     ])
 
+    beaconTestManager.startBeacon('Test', 'Test');
+
     // await Beacons.addIBeaconsDetection()
     // await Beacons.addEddystoneUIDDetection()
     // await Beacons.addEddystoneURLDetection()
