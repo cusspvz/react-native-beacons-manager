@@ -24,6 +24,7 @@ import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableNativeArray;
 import com.facebook.react.bridge.WritableNativeMap;
+import com.facebook.react.bridge.Promise;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import org.altbeacon.beacon.Beacon;
@@ -54,6 +55,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     private static final int ARMA_RSSI_FILTER = 1;
     private NotificationCompat.Builder notificationBuilder = null;
     private Notification pendingNotification = null;
+    private NotificationManager notificationManager = null;
     private BeaconManager mBeaconManager;
     private Context mApplicationContext;
     private ReactApplicationContext mReactContext;
@@ -61,6 +63,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     private final Object bindingLock = new Object();
     private volatile boolean binding = false;
     private volatile boolean binded = false;
+    private Integer requestCode = 123;
 
     private static final String NOTIFICATION_CHANNEL_ID = "BeaconsAndroidModule";
     private static boolean channelCreated = false;
@@ -86,21 +89,16 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
         this.mLifecycle = new BeaconsAndroidLifecycle(this, reactContext);
 
         if (!mBeaconManager.isAnyConsumerBound()) {
-            Integer requestCode = 123;
-
             if (notificationBuilder == null) {
                 notificationBuilder = createNotificationBuilder("test", "testing", requestCode);
             }
 
             if (mBeaconManager.getForegroundServiceNotification() == null) {
-                NotificationManager notificationManager = (NotificationManager) mApplicationContext.getSystemService(Context.NOTIFICATION_SERVICE);
+                notificationManager = (NotificationManager) mApplicationContext.getSystemService(Context.NOTIFICATION_SERVICE);
                 checkOrCreateChannel(notificationManager);
 
                 pendingNotification = notificationBuilder.build();
                 pendingNotification.defaults |= Notification.DEFAULT_LIGHTS;
-
-                notificationManager.notify(requestCode, pendingNotification);
-                mBeaconManager.enableForegroundServiceScanning(pendingNotification, requestCode);
             } else if (pendingNotification == null) {
                 pendingNotification = mBeaconManager.getForegroundServiceNotification();
             }
@@ -162,9 +160,10 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
 
         unbindManager();
 
-        // TODO: Cancel the pending notification
-        // pendingNotification.cancel();
-        // this.pendingNotification = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notificationManager.cancel(requestCode);
+            pendingNotification = null;
+        }
 
         boolean scanJobsEnabled = mBeaconManager.getScheduledScanJobsEnabled();
         if (scanJobsEnabled == true) {
@@ -173,12 +172,11 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
 
         mBeaconManager.disableForegroundServiceScanning();
 
-        bindManager();
-
         mBeaconManager.setBackgroundScanPeriod(2000);
         mBeaconManager.setBackgroundBetweenScanPeriod(10000);
         mBeaconManager.setBackgroundMode(true);
 
+        bindManager();
     }
 
     @ReactMethod
@@ -701,6 +699,8 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
             .setContentTitle(title)
             .setContentText(message)
             .setAutoCancel(false)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSound(Settings.System.DEFAULT_NOTIFICATION_URI)
@@ -711,6 +711,48 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
         }
 
         return notificationBuilder;
+    }
+
+    @ReactMethod
+    public void setNotificationTitle(String title, Promise promise) {
+        try {
+            notificationBuilder.setContentTitle(title);
+            pendingNotification = notificationBuilder.build();
+            pendingNotification.defaults |= Notification.DEFAULT_LIGHTS;
+            notificationManager.notify(requestCode, pendingNotification);
+        } catch (Exception e) {
+            promise.reject(E_LAYOUT_ERROR, e);
+        }
+    }
+
+    @ReactMethod
+    public void setNotificationMessage(String message, Promise promise) {
+        try {
+            notificationBuilder.setContentText(message);
+            pendingNotification = notificationBuilder.build();
+            pendingNotification.defaults |= Notification.DEFAULT_LIGHTS;
+            notificationManager.notify(requestCode, pendingNotification);
+            promise.resolve(null);
+        } catch (Exception e) {
+            promise.reject(E_LAYOUT_ERROR, e);
+        }
+    }
+
+    @ReactMethod
+    public void setScanNotificationContent(String title, String message, Promise promise) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                notificationBuilder.setContentTitle(title);
+                notificationBuilder.setContentText(message);
+                pendingNotification = notificationBuilder.build();
+                pendingNotification.defaults |= Notification.DEFAULT_LIGHTS;
+                notificationManager.notify(requestCode, pendingNotification);
+                mBeaconManager.enableForegroundServiceScanning(pendingNotification, requestCode);
+                promise.resolve(null);
+            }
+        } catch (Exception e) {
+            promise.reject(E_LAYOUT_ERROR, e);
+        }
     }
 
     private Boolean isActivityRunning(Class activityClass) {
