@@ -739,7 +739,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     }
 
     @ReactMethod
-    public void startBeacon(String title, String message, Promise promise) {
+    public void setScanNotificationContent(String title, String message, Promise promise) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 notificationBuilder.setContentTitle(title);

@@ -225,7 +225,7 @@ class BeaconsDemo extends Component<Props, State> {
       Beacons.PARSER_EDDYSTONE_URL
     ])
 
-    beaconTestManager.startBeacon('Test', 'Test');
+    beaconTestManager.setScanNotificationContent('Hey there', 'Android 8+ requires a pending notification to do a foreground scan');
 
     // await Beacons.addIBeaconsDetection()
     // await Beacons.addEddystoneUIDDetection()
