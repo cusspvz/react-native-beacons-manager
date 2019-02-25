@@ -88,21 +88,6 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
         // Setup Lifecycle Event Listener
         this.mLifecycle = new BeaconsAndroidLifecycle(this, reactContext);
 
-        if (!mBeaconManager.isAnyConsumerBound()) {
-            if (notificationBuilder == null) {
-                notificationBuilder = createNotificationBuilder("test", "testing", requestCode);
-            }
-
-            if (mBeaconManager.getForegroundServiceNotification() == null) {
-                notificationManager = (NotificationManager) mApplicationContext.getSystemService(Context.NOTIFICATION_SERVICE);
-                checkOrCreateChannel(notificationManager);
-
-                pendingNotification = notificationBuilder.build();
-                pendingNotification.defaults |= Notification.DEFAULT_LIGHTS;
-            } else if (pendingNotification == null) {
-                pendingNotification = mBeaconManager.getForegroundServiceNotification();
-            }
-        }
     }
 
     @Override
@@ -125,10 +110,11 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
 
     public void whenForeground () {
         Log.d(LOG_TAG, "whenForeground");
+        unbindManager();
+        setupPendingNotification();
 
         boolean scanJobsEnabled = mBeaconManager.getScheduledScanJobsEnabled();
         if (scanJobsEnabled == true) {
-            unbindManager();
             mBeaconManager.setEnableScheduledScanJobs(false);
         }
 
@@ -721,6 +707,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
             pendingNotification.defaults |= Notification.DEFAULT_LIGHTS;
             notificationManager.notify(requestCode, pendingNotification);
         } catch (Exception e) {
+            Log.e(LOG_TAG, "setNotificationTitle, error: ", e);
             promise.reject(E_LAYOUT_ERROR, e);
         }
     }
@@ -734,7 +721,26 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
             notificationManager.notify(requestCode, pendingNotification);
             promise.resolve(null);
         } catch (Exception e) {
+            Log.e(LOG_TAG, "setNotificationMessage, error: ", e);
             promise.reject(E_LAYOUT_ERROR, e);
+        }
+    }
+
+    private void setupPendingNotification () {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (notificationBuilder == null) {
+                notificationBuilder = createNotificationBuilder("test", "testing", requestCode);
+            }
+
+            if (mBeaconManager.getForegroundServiceNotification() == null) {
+                notificationManager = (NotificationManager) mApplicationContext.getSystemService(Context.NOTIFICATION_SERVICE);
+                checkOrCreateChannel(notificationManager);
+
+                pendingNotification = notificationBuilder.build();
+                pendingNotification.defaults |= Notification.DEFAULT_LIGHTS;
+            } else if (pendingNotification == null) {
+                pendingNotification = mBeaconManager.getForegroundServiceNotification();
+            }
         }
     }
 
@@ -742,15 +748,35 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     public void setScanNotificationContent(String title, String message, Promise promise) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
                 notificationBuilder.setContentTitle(title);
                 notificationBuilder.setContentText(message);
+
                 pendingNotification = notificationBuilder.build();
                 pendingNotification.defaults |= Notification.DEFAULT_LIGHTS;
                 notificationManager.notify(requestCode, pendingNotification);
+
+                unbindManager();
                 mBeaconManager.enableForegroundServiceScanning(pendingNotification, requestCode);
+                bindManager();
+
                 promise.resolve(null);
             }
         } catch (Exception e) {
+            Log.e(LOG_TAG, "setScanNotificationContent, error: ", e);
+            promise.reject(E_LAYOUT_ERROR, e);
+        }
+    }
+
+    @ReactMethod
+    public void cancelScanNotification(Promise promise) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                notificationManager.cancel(requestCode);
+                pendingNotification = null;
+            }
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "cancelScanNotification, error: ", e);
             promise.reject(E_LAYOUT_ERROR, e);
         }
     }
