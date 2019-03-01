@@ -700,8 +700,9 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
         pendingNotificationTitle = title;
 
         try {
-            mBeaconManager.disableForegroundServiceScanning();
-            setupScanNotification();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                setupScanNotification();
+            }
 
             promise.resolve(null);
         } catch (Exception e) {
@@ -719,8 +720,9 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
         pendingNotificationMessage = message;
 
         try {
-            mBeaconManager.disableForegroundServiceScanning();
-            setupScanNotification();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                setupScanNotification();
+            }
 
             promise.resolve(null);
         } catch (Exception e) {
@@ -741,9 +743,9 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 setupScanNotification();
-
-                promise.resolve(null);
             }
+
+            promise.resolve(null);
         } catch (Exception e) {
             Log.e(LOG_TAG, "setScanNotificationContent, error: ", e);
             promise.reject(E_LAYOUT_ERROR, e);
