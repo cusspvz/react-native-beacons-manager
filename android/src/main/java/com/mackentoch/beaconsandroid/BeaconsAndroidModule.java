@@ -427,8 +427,6 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
         public void didEnterRegion(Region region) {
             Log.i(LOG_TAG, "didEnterRegion: " + region.toString());
 
-            wakeUpAppIfNotRunning();
-
             if (!reactIsActive()) {
                 mBeaconManager.removeMonitorNotifier(mMonitorNotifier);
                 return;
@@ -530,8 +528,6 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
             Log.d(LOG_TAG, "didRangeBeaconsInRegion, region: " + region.toString() + " | beacons: " + beacons.toString());
 
             if (!beacons.isEmpty()) {
-                wakeUpAppIfNotRunning();
-
 
                 if (!reactIsActive()) {
                     mBeaconManager.removeRangeNotifier(mRangeNotifier);
