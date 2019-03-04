@@ -772,8 +772,9 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
     }
 
     private void _cancelScanNotification() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && notificationManager != null) {
             notificationManager.cancel(pendingNotificationRequestCode);
+
             pendingNotification = null;
             notificationBuilder = null;
             notificationManager = null;
