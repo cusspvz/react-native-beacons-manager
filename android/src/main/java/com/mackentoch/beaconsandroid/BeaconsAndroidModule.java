@@ -112,7 +112,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
 
     public void whenForeground () {
         Log.d(LOG_TAG, "whenForeground");
-        unbindManager();
+        // unbindManager();
         // setupScanNotification();
         // mBeaconManager.setEnableScheduledScanJobs(false);
 
@@ -132,7 +132,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
         // mBeaconManager.setBackgroundBetweenScanPeriod(10000);
         // mBeaconManager.setBackgroundMode(true);
 
-        bindManager();
+        // bindManager();
     }
 
     public void whenKilled () {
