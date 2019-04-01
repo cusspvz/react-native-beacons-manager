@@ -169,6 +169,7 @@ public class BeaconsAndroidModule extends ReactContextBaseJavaModule implements 
                 }
 
                 bindingLock.wait(500);
+                binding = false;
             }
 
             Log.d(LOG_TAG, "bindManager: binded");
